@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- L'Envers runs INSIDE the App Sandbox. It needs exactly two grants:
+
+	     1. Outgoing network — it calls the Anthropic Messages API directly
+	        with the user's own key (no backend, no proxy).
+	     2. Keychain access group — the API key is stored in the login
+	        Keychain, never in UserDefaults or on disk in the clear.
+
+	     File reading uses the user-selected-read entitlement so the open
+	     panel can hand the app .txt / .md / .fountain files. -->
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<key>com.apple.security.files.user-selected.read-only</key>
+	<true/>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)app.atelier.l-envers</string>
+	</array>
+</dict>
+</plist>

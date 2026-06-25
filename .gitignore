@@ -1,0 +1,12 @@
+# Xcode / xcodegen
+*.xcodeproj
+DerivedData/
+build/
+.build/
+.DS_Store
+*.xcuserstate
+xcuserdata/
+*.local
+
+# Generated project (run ./gen.sh to recreate)
+LEnvers.xcodeproj/
