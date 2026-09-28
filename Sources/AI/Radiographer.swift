@@ -21,32 +21,12 @@ struct Radiographer: Sendable {
         guard !doc.isEmpty else { throw XRayError.emptyDocument }
         guard let key = Keychain.apiKey(), !key.isEmpty else { throw XRayError.missingKey }
 
-        let body: [String: Any] = [
-            "model": model,
-            "max_tokens": 8192,
-            "system": systemPrompt(french: french),
-            "tools": [[
-                "name": "report_skeleton",
-                "description": "Report the structural skeleton of the document: the ordered units (what each one DOES) and the structural holes.",
-                "input_schema": schema,
-            ]],
-            // Force the answer THROUGH the tool — guarantees validated structured output.
-            "tool_choice": ["type": "tool", "name": "report_skeleton"],
-            "messages": [[
-                "role": "user",
-                "content": [[
-                    "type": "text",
-                    "text": userPrompt(french: french, document: doc),
-                ]],
-            ]],
-        ]
-
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(key, forHTTPHeaderField: "x-api-key")
         request.setValue(anthropicVersion, forHTTPHeaderField: "anthropic-version")
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        request.httpBody = try Self.encode(requestBody(document: doc, french: french))
         request.timeoutInterval = 180
 
         let data: Data
@@ -88,6 +68,43 @@ struct Radiographer: Sendable {
         } catch {
             throw XRayError.decoding(error.localizedDescription)
         }
+    }
+
+    /// The radiograph request. The tool schema and the system prompt are the same on every
+    /// radiograph, so the cache breakpoint closes the system block: re-radiographing an
+    /// edited draft reads them back at a tenth of the price. The document follows, after
+    /// the breakpoint, in the user turn.
+    func requestBody(document doc: String, french: Bool) -> [String: Any] {
+        [
+            "model": model,
+            "max_tokens": 8192,
+            "system": [[
+                "type": "text",
+                "text": systemPrompt(french: french),
+                "cache_control": ["type": "ephemeral"],
+            ]],
+            "tools": [[
+                "name": "report_skeleton",
+                "description": "Report the structural skeleton of the document: the ordered units (what each one DOES) and the structural holes.",
+                "input_schema": schema,
+            ]],
+            // Force the answer THROUGH the tool — guarantees validated structured output.
+            "tool_choice": ["type": "tool", "name": "report_skeleton"],
+            "messages": [[
+                "role": "user",
+                "content": [[
+                    "type": "text",
+                    "text": userPrompt(french: french, document: doc),
+                ]],
+            ]],
+        ]
+    }
+
+    /// Sorted keys: a Swift dictionary lists its keys in a different order from one
+    /// instance (and one launch) to the next, and the prompt cache only matches identical
+    /// bytes — the tool schema renders first, so one reshuffle loses the whole prefix.
+    static func encode(_ body: [String: Any]) throws -> Data {
+        try JSONSerialization.data(withJSONObject: body, options: [.sortedKeys])
     }
 
     // MARK: Wire payload
